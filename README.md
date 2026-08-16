@@ -16,18 +16,19 @@ Runtime attributes (`ObjectID`, `Health`, and `PropState`) are assigned by the s
 - **F** — anchor or unanchor the aimed prop
 - **Mouse wheel** — pull a held prop closer or push it farther away
 
-Grabs use the cursor's exact surface hit point. Server-created attachments and
+Grabs use the cursor's surface hit point with a small amount of validation
+tolerance for cursor and network drift. Server-created attachments and
 limited-force constraints pull that point toward a target 2–3 studs in front of
-the player; props are never teleported. Held props do not collide with their
-holder, preventing character-launching physics feedback. Multiple players can
-grab different points on the same prop, and every additional constraint
-contributes force.
+the player, rotating the prop along with the player; props are never teleported.
+Held props do not collide with their holder, preventing character-launching
+physics feedback. Multiple players can grab different points on the same prop,
+and every additional constraint contributes force.
 
 Carrying locks the local player to first person. Camera pitch raises or lowers
 the physical target (with ground and vertical clamps). The holder renders a local
 R6 carry arm every frame for smooth motion and hides their replicated copy; other
 players see the server-authoritative carry arm at the same grip point.
-The server ends the grip if that shoulder-to-grip distance exceeds 3.6 studs.
+The server ends the grip if that shoulder-to-grip distance exceeds 4.5 studs.
 
 Props whose `Classification` attribute is `"Heavy"`, whose `Heavy` attribute is
 true, or whose mass meets `HeavyMass` try to use both arms. Heavy props also reduce
