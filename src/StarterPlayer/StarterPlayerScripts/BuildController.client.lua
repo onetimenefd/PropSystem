@@ -21,9 +21,11 @@ Instance.new("UICorner", menu).CornerRadius = UDim.new(0, 8)
 local layout = Instance.new("UIListLayout", menu); layout.Padding = UDim.new(0, 6); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 local padding = Instance.new("UIPadding", menu); padding.PaddingTop = UDim.new(0, 10)
 for _, name in { "Wall", "Floor", "Ramp", "Foundation" } do
-	local button = Instance.new("TextButton"); button.Name = name; button.Size = UDim2.fromOffset(150, 42); button.Text = name; button.Font = Enum.Font.GothamMedium; button.TextSize = 15; button.TextColor3 = Color3.new(1, 1, 1); button.BackgroundColor3 = Color3.fromRGB(48, 53, 61); button.Parent = menu
+	-- Keep a value local to this iteration so every callback retains its own build type.
+	local buildType = name
+	local button = Instance.new("TextButton"); button.Name = buildType; button.Size = UDim2.fromOffset(150, 42); button.Text = buildType; button.Font = Enum.Font.GothamMedium; button.TextSize = 15; button.TextColor3 = Color3.new(1, 1, 1); button.BackgroundColor3 = Color3.fromRGB(48, 53, 61); button.Parent = menu
 	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 5)
-	button.Activated:Connect(function() selected = name; rotation = Vector3.zero end)
+	button.Activated:Connect(function() selected = buildType; rotation = Vector3.zero end)
 end
 
 local function plotAt(position)
@@ -50,6 +52,12 @@ end
 
 local function ensureGhost()
 	local definition = Definitions[selected]
+	if not definition then
+		warn(`Unknown build type selected: {tostring(selected)}`)
+		selected = "Wall"
+		definition = Definitions[selected]
+		if not definition then return end
+	end
 	if ghost and ghost.Name == selected then return end
 	if ghost then ghost:Destroy() end
 	ghost = if definition.Ramp then Instance.new("WedgePart") else Instance.new("Part")
@@ -79,6 +87,7 @@ end)
 RunService.RenderStepped:Connect(function()
 	if not enabled then return end
 	ensureGhost()
+	if not ghost then return end
 	local camera = workspace.CurrentCamera; if not camera then return end
 	local params = RaycastParams.new(); params.FilterType = Enum.RaycastFilterType.Exclude; params.FilterDescendantsInstances = { player.Character, ghost, boundary }
 	local hit = workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * Config.PlacementRange, params)
