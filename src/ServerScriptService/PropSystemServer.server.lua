@@ -40,8 +40,8 @@ request.OnServerEvent:Connect(function(player, action, prop, value, value2, valu
 		return
 	end
 	if action == "Grab" and typeof(value) == "Vector3" and typeof(value2) == "Vector3" then
-		local ok, reason, attachment = PropService:Grab(player, prop, value, value2)
-		result:FireClient(player, "Grab", prop, ok, reason, attachment)
+		local ok, reason, attachment, side = PropService:Grab(player, prop, value, value2)
+		result:FireClient(player, "Grab", prop, ok, reason, attachment, side)
 	elseif action == "Release" then
 		PropService:Release(player, prop)
 	elseif action == "Anchor" and typeof(value) == "boolean" and isNearProp(player, prop) then
@@ -50,15 +50,17 @@ request.OnServerEvent:Connect(function(player, action, prop, value, value2, valu
 		PropService:Rotate(player, prop, value, value2, value3)
 	elseif action == "Distance" and typeof(value) == "number" then
 		PropService:AdjustHold(player, prop, math.clamp(value, -0.35, 0.35))
+	elseif action == "Target" and typeof(value) == "Vector3" and typeof(value2) == "Vector3" then
+		PropService:UpdateTarget(player, prop, value, value2)
 	end
 end)
 
-PropService.GripBroken:Connect(function(player, prop)
-	result:FireClient(player, "Broken", prop)
+PropService.GripEnded:Connect(function(player, prop, reason)
+	result:FireClient(player, "Broken", prop, reason)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-	PropService:ReleaseAll(player)
+	PropService:ReleaseAll(player, "PlayerLeft")
 end)
 
 PropService:Start()

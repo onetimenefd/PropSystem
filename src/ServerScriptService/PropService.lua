@@ -14,6 +14,8 @@ type Grip = {
 	position: AlignPosition,
 	orientation: AlignOrientation,
 	createdAt: number,
+	side: string,
+	holdDistance: number,
 }
 
 export type PropRecord = {
@@ -31,8 +33,8 @@ local PropService = {}
 local registry: { [string]: PropRecord } = {}
 local byInstance: { [Instance]: PropRecord } = {}
 local heldByPlayer: { [Player]: PropRecord } = {}
-local gripBroken = Instance.new("BindableEvent")
-PropService.GripBroken = gripBroken.Event
+local gripEnded = Instance.new("BindableEvent")
+PropService.GripEnded = gripEnded.Event
 
 local function resolvePart(instance: Instance): BasePart?
 	if instance:IsA("BasePart") then return instance end
@@ -52,7 +54,7 @@ local function setReplicatedState(record: PropRecord)
 	end
 end
 
-local function removeGrip(record: PropRecord, player: Player, broken: boolean): boolean
+local function removeGrip(record: PropRecord, player: Player, reason: string): boolean
 	local grip = record.grips[player]
 	if not grip then return false end
 	for _, item in { grip.position, grip.orientation, grip.grab, grip.target } do item:Destroy() end
@@ -60,7 +62,7 @@ local function removeGrip(record: PropRecord, player: Player, broken: boolean): 
 	heldByPlayer[player] = nil
 	if next(record.grips) == nil then record.instance:SetNetworkOwnershipAuto() end
 	setReplicatedState(record)
-	if broken then gripBroken:Fire(player, record.source) end
+	gripEnded:Fire(player, record.source, reason)
 	return true
 end
 
@@ -89,7 +91,7 @@ end
 function PropService:Get(objectID: string): BasePart? local r = registry[objectID]; return if r then r.instance else nil end
 function PropService:GetRecord(prop: Instance): PropRecord? return byInstance[prop] end
 
-function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hitPoint: Vector3): (boolean, string?, Attachment?)
+function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hitPoint: Vector3): (boolean, string?, Attachment?, string?)
 	local record = byInstance[prop]
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -106,6 +108,7 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	end
 
 	local suffix = tostring(player.UserId)
+	local side = if root.CFrame:PointToObjectSpace(result.Position).X < 0 then "Left" else "Right"
 	local target = Instance.new("Attachment")
 	target.Name = "PropHoldTarget_" .. suffix; target.Position = Vector3.new(0, 0, -Config.DefaultHoldDistance); target.Parent = root
 	local grab = Instance.new("Attachment")
@@ -119,16 +122,16 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	local orientation = Instance.new("AlignOrientation")
 	orientation.Name = "PropGrabOrientation"; orientation.Attachment0 = grab; orientation.Attachment1 = target
 	orientation.MaxTorque = record.mass * Config.MaxTorquePerMass; orientation.Responsiveness = responsiveness; orientation.Parent = record.instance
-	record.grips[player] = { player = player, grab = grab, target = target, position = position, orientation = orientation, createdAt = os.clock() }
+	record.grips[player] = { player = player, grab = grab, target = target, position = position, orientation = orientation, createdAt = os.clock(), side = side, holdDistance = Config.DefaultHoldDistance }
 	heldByPlayer[player] = record
 	-- Roblox permits one owner per assembly; the first holder owns it while additional
 	-- server constraints still contribute force.
 	if next(record.grips) == player then record.instance:SetNetworkOwner(player) end
 	setReplicatedState(record)
-	return true, nil, grab
+	return true, nil, grab, side
 end
 
-function PropService:Release(player: Player, prop: Instance): boolean local r = byInstance[prop]; return if r then removeGrip(r, player, false) else false end
+function PropService:Release(player: Player, prop: Instance, reason: string?): boolean local r = byInstance[prop]; return if r then removeGrip(r, player, reason or "Released") else false end
 
 function PropService:SetAnchored(prop: Instance, anchored: boolean): boolean
 	local r = byInstance[prop]; if not r or next(r.grips) then return false end
@@ -137,8 +140,29 @@ end
 
 function PropService:AdjustHold(player: Player, prop: Instance, delta: number): boolean
 	local r = byInstance[prop]; local grip = r and r.grips[player]; if not grip then return false end
-	local distance = math.clamp(-grip.target.Position.Z + delta, Config.MinHoldDistance, Config.MaxHoldDistance)
-	grip.target.Position = Vector3.new(0, 0, -distance); return true
+	local distance = math.clamp(grip.holdDistance + delta, Config.MinHoldDistance, Config.MaxHoldDistance)
+	grip.holdDistance = distance; return true
+end
+
+function PropService:UpdateTarget(player: Player, prop: Instance, cameraPosition: Vector3, lookVector: Vector3): boolean
+	local r = byInstance[prop]; local grip = r and r.grips[player]
+	local character = player.Character; local root = character and character:FindFirstChild("HumanoidRootPart")
+	local head = character and character:FindFirstChild("Head")
+	if not grip or not root or not root:IsA("BasePart") or not head or not head:IsA("BasePart") then return false end
+	if (cameraPosition - head.Position).Magnitude > 3 or lookVector.Magnitude < 0.9 then return false end
+	local shoulderOffset = Vector3.new(if grip.side == "Left" then -1.5 else 1.5, 0.5, 0)
+	local shoulder = (root.CFrame * CFrame.new(shoulderOffset)).Position
+	local desired = cameraPosition + lookVector.Unit * grip.holdDistance
+	desired = Vector3.new(desired.X, math.clamp(desired.Y, shoulder.Y + Config.MinTargetHeightFromShoulder, shoulder.Y + Config.MaxTargetHeightFromShoulder), desired.Z)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { character, r.source }
+	local ground = workspace:Raycast(desired + Vector3.new(0, 2, 0), Vector3.new(0, -6, 0), rayParams)
+	if ground then desired = Vector3.new(desired.X, math.max(desired.Y, ground.Position.Y + 0.2), desired.Z) end
+	local delta = desired - shoulder
+	if delta.Magnitude > Config.BreakDistance - 0.1 then desired = shoulder + delta.Unit * (Config.BreakDistance - 0.1) end
+	grip.target.CFrame = root.CFrame:ToObjectSpace(CFrame.new(desired))
+	return true
 end
 
 function PropService:Rotate(player: Player, prop: Instance, pitch: number, yaw: number, roll: number): boolean
@@ -154,13 +178,13 @@ end
 
 function PropService:Break(prop: Instance): boolean
 	local r = byInstance[prop]; if not r then return false end
-	for player in r.grips do removeGrip(r, player, true) end
+	for player in r.grips do removeGrip(r, player, "PropDestroyed") end
 	registry[r.objectID] = nil
 	for instance, candidate in byInstance do if candidate == r then byInstance[instance] = nil end end
 	r.source:Destroy(); return true
 end
 
-function PropService:ReleaseAll(player: Player) local r = heldByPlayer[player]; if r then removeGrip(r, player, false) end end
+function PropService:ReleaseAll(player: Player, reason: string?) local r = heldByPlayer[player]; if r then removeGrip(r, player, reason or "Interrupted") end end
 
 function PropService:Start()
 	for _, instance in CollectionService:GetTagged("Prop") do self:Register(instance) end
@@ -168,8 +192,14 @@ function PropService:Start()
 	RunService.Heartbeat:Connect(function()
 		for _, record in registry do
 			for player, grip in record.grips do
-				if not player.Parent or not grip.target.Parent or not grip.grab.Parent then removeGrip(record, player, true)
-				elseif os.clock() - grip.createdAt > Config.BreakGracePeriod and (grip.grab.WorldPosition - grip.target.WorldPosition).Magnitude > Config.BreakDistance then removeGrip(record, player, true) end
+				local character = player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				local shoulder = root and root:IsA("BasePart") and (root.CFrame * CFrame.new(if grip.side == "Left" then -1.5 else 1.5, 0.5, 0)).Position
+				if not player.Parent or not grip.target.Parent or not grip.grab.Parent then removeGrip(record, player, "InvalidGrip")
+				elseif not humanoid or humanoid.Health <= 0 then removeGrip(record, player, "PlayerDied")
+				elseif record.instance.Anchored then removeGrip(record, player, "PropAnchored")
+				elseif shoulder and os.clock() - grip.createdAt > Config.BreakGracePeriod and (grip.grab.WorldPosition - shoulder).Magnitude > Config.BreakDistance then removeGrip(record, player, "Overextended") end
 			end
 		end
 	end)
