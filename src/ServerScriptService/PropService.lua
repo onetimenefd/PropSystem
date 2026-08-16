@@ -140,7 +140,8 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	end
 
 	local suffix = tostring(player.UserId)
-	local side = if root.CFrame:PointToObjectSpace(result.Position).X < 0 then "Left" else "Right"
+	local hasEquippedTool = character:FindFirstChildWhichIsA("Tool") ~= nil
+	local side = if hasEquippedTool then "Left" elseif root.CFrame:PointToObjectSpace(result.Position).X < 0 then "Left" else "Right"
 	local target = Instance.new("Attachment")
 	target.Name = "PropHoldTarget_" .. suffix; target.Position = Vector3.new(0, 0, -Config.DefaultHoldDistance); target.Parent = root
 	local grab = Instance.new("Attachment")

@@ -29,8 +29,9 @@ carry arm, including the player's arm color and shirt texture, stretches from
 the selected shoulder to the exact surface grip point.
 The server ends the grip if that shoulder-to-grip distance exceeds 3.6 studs.
 
-Equipped tools are moved to the R6 left hand. Equipping one while a prop is held
-with the right hand releases that prop first.
+When a tool is equipped, newly grabbed props use the R6 left hand so the tool
+can remain in its default right hand. Equipping a tool while a prop is already
+held with the right hand releases that prop first.
 
 ## Development
 
