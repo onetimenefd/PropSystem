@@ -14,6 +14,7 @@ local result = remotes:WaitForChild("Result")
 local held, pending, focused
 local previousCameraMode, previousAutoRotate
 local lastTargetUpdate = 0
+local localArms = {}
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "PropInfo"; gui.ResetOnSpawn = false; gui.Parent = player:WaitForChild("PlayerGui")
@@ -37,11 +38,47 @@ local function restoreCarryState()
 	previousAutoRotate = nil
 end
 
+local function clearLocalArms()
+	for _, arm in localArms do arm:Destroy() end
+	table.clear(localArms)
+	local character = player.Character
+	if character then
+		for _, child in character:GetChildren() do
+			if child:IsA("BasePart") and child:GetAttribute("PropCarryArm") and child:GetAttribute("OwnerUserId") == player.UserId then
+				child.LocalTransparencyModifier = 0
+			end
+		end
+	end
+end
+
 local function breakGrip(reason)
 	if not held then return end
 	held = nil
+	clearLocalArms()
 	restoreCarryState()
 	if reason and reason ~= "Released" then warn("Grip ended: " .. reason) end
+end
+
+local function syncLocalArms(character)
+	local activeSides = {}
+	for _, serverArm in character:GetChildren() do
+		if not serverArm:IsA("BasePart") or not serverArm:GetAttribute("PropCarryArm") or serverArm:GetAttribute("OwnerUserId") ~= player.UserId then continue end
+		serverArm.LocalTransparencyModifier = 1
+		local side = serverArm:GetAttribute("GripSide")
+		if typeof(side) ~= "string" then continue end
+		activeSides[side] = true
+		if not localArms[side] then
+			local clone = serverArm:Clone()
+			clone.Name = "Local" .. side .. "CarryArm"
+			clone:SetAttribute("PropCarryArm", nil)
+			clone.LocalTransparencyModifier = 0
+			clone.Parent = character
+			localArms[side] = clone
+		end
+	end
+	for side, arm in localArms do
+		if not activeSides[side] then arm:Destroy(); localArms[side] = nil end
+	end
 end
 
 local function startArm()
@@ -63,6 +100,19 @@ RunService.RenderStepped:Connect(function()
 		local camera, character = workspace.CurrentCamera, player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if camera and root and root:IsA("BasePart") then
+			syncLocalArms(character)
+			local torso = character:FindFirstChild("Torso")
+			if torso and torso:IsA("BasePart") then
+				for side, arm in localArms do
+					local shoulder = (torso.CFrame * CFrame.new(if side == "Left" then -1.5 else 1.5, 0.5, 0)).Position
+					local gripPosition = held.target.WorldPosition
+					local delta = gripPosition - shoulder
+					if delta.Magnitude > 0.01 then
+						arm.Size = Vector3.new(arm.Size.X, math.min(delta.Magnitude + Config.ArmOverlap * 2, Config.BreakDistance + Config.ArmOverlap * 2), arm.Size.Z)
+						arm.CFrame = CFrame.lookAt(shoulder:Lerp(gripPosition, 0.5), gripPosition) * CFrame.Angles(math.pi / 2, 0, 0)
+					end
+				end
+			end
 			local flatLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
 			if flatLook.Magnitude > 0.01 then root.CFrame = CFrame.lookAt(root.Position, root.Position + flatLook) end
 			if os.clock() - lastTargetUpdate >= 1 / Config.TargetUpdateRate then
@@ -116,6 +166,6 @@ local function watchCharacter(character)
 	humanoid.Died:Connect(function() breakGrip("PlayerDied") end)
 	humanoid.Seated:Connect(function(active) if active and held then request:FireServer("Release", held.prop); breakGrip("EnteredVehicle") end end)
 end
-player.CharacterRemoving:Connect(function() held, pending = nil, nil; restoreCarryState() end)
+player.CharacterRemoving:Connect(function() held, pending = nil, nil; clearLocalArms(); restoreCarryState() end)
 player.CharacterAdded:Connect(watchCharacter)
 if player.Character then task.spawn(watchCharacter, player.Character) end
