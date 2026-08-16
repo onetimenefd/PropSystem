@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local PropService = require(script.Parent.PropService)
 local folder = ReplicatedStorage:FindFirstChild("PropRemotes")
@@ -60,5 +61,44 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	PropService:ReleaseAll(player, "PlayerLeft")
 end)
+
+local function moveToolToLeftHand(character, tool)
+	local leftArm = character:FindFirstChild("Left Arm")
+	if not leftArm or not leftArm:IsA("BasePart") then return end
+	for _ = 1, 10 do
+		if tool.Parent ~= character then return end
+		local rightArm = character:FindFirstChild("Right Arm")
+		local grip = rightArm and rightArm:FindFirstChild("RightGrip")
+		if grip and grip:IsA("JointInstance") and grip.Part1 == tool:FindFirstChild("Handle") then
+			grip.Name = "LeftGrip"
+			grip.Part0 = leftArm
+			grip.Parent = leftArm
+			return
+		end
+		RunService.Heartbeat:Wait()
+	end
+end
+
+local function watchCharacter(player, character)
+	character.ChildAdded:Connect(function(child)
+		if not child:IsA("Tool") then return end
+		if PropService:GetHeldSide(player) == "Right" then PropService:ReleaseAll(player, "ToolEquipped") end
+		task.spawn(moveToolToLeftHand, character, child)
+	end)
+	character.ChildRemoved:Connect(function(child)
+		if not child:IsA("Tool") then return end
+		local leftArm = character:FindFirstChild("Left Arm")
+		local grip = leftArm and leftArm:FindFirstChild("LeftGrip")
+		if grip and grip:IsA("JointInstance") and grip.Part1 == child:FindFirstChild("Handle") then grip:Destroy() end
+	end)
+end
+
+local function watchPlayer(player)
+	player.CharacterAdded:Connect(function(character) watchCharacter(player, character) end)
+	if player.Character then watchCharacter(player, player.Character) end
+end
+
+Players.PlayerAdded:Connect(watchPlayer)
+for _, player in Players:GetPlayers() do watchPlayer(player) end
 
 PropService:Start()
