@@ -13,7 +13,6 @@ return table.freeze({
 	BaseForce = 18000,
 	ForcePerMass = 850,
 	MaxTorquePerMass = 2400,
-	RotationSensitivity = 0.35,
 	TargetUpdateRate = 20,
 	MinTargetHeightFromShoulder = -1.5,
 	MaxTargetHeightFromShoulder = 2,

@@ -46,8 +46,6 @@ request.OnServerEvent:Connect(function(player, action, prop, value, value2, valu
 		PropService:Release(player, prop)
 	elseif action == "Anchor" and typeof(value) == "boolean" and isNearProp(player, prop) then
 		PropService:SetAnchored(prop, value)
-	elseif action == "Rotate" and typeof(value) == "number" and typeof(value2) == "number" and typeof(value3) == "number" then
-		PropService:Rotate(player, prop, value, value2, value3)
 	elseif action == "Distance" and typeof(value) == "number" then
 		PropService:AdjustHold(player, prop, math.clamp(value, -0.35, 0.35))
 	elseif action == "Target" and typeof(value) == "Vector3" and typeof(value2) == "Vector3" then
