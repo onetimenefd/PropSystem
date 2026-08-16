@@ -177,7 +177,7 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude; params.FilterDescendantsInstances = { character }
 	local result = workspace:Raycast(rayOrigin, hitPoint - rayOrigin, params)
-	if not result or (result.Instance ~= record.instance and not result.Instance:IsDescendantOf(record.source)) or (result.Position - hitPoint).Magnitude > 0.75 then
+	if not result or (result.Instance ~= record.instance and not result.Instance:IsDescendantOf(record.source)) or (result.Position - hitPoint).Magnitude > Config.GrabPointTolerance then
 		return false, "Invalid grab point"
 	end
 
@@ -267,7 +267,10 @@ function PropService:UpdateTarget(player: Player, prop: Instance, cameraPosition
 	if ground then desired = Vector3.new(desired.X, math.max(desired.Y, ground.Position.Y + 0.2), desired.Z) end
 	local delta = desired - shoulder
 	if delta.Magnitude > Config.BreakDistance - 0.1 then desired = shoulder + delta.Unit * (Config.BreakDistance - 0.1) end
-	grip.target.CFrame = root.CFrame:ToObjectSpace(CFrame.new(desired))
+	-- Only update the target's local position. Keeping its local orientation at the
+	-- identity makes the prop turn with the character instead of holding a fixed
+	-- world-space rotation as the character turns.
+	grip.target.Position = root.CFrame:PointToObjectSpace(desired)
 	return true
 end
 

@@ -1,10 +1,12 @@
 return table.freeze({
 	GrabDistance = 12,
+	-- Allow for cursor/network drift when the server validates a surface hit.
+	GrabPointTolerance = 1.5,
 	DefaultHoldDistance = 2.75,
 	MinHoldDistance = 1.5,
 	MaxHoldDistance = 3.25,
 	SoftGripDistance = 3.2,
-	BreakDistance = 3.6,
+	BreakDistance = 4.5,
 	BreakGracePeriod = 0.65,
 	LightResponsiveness = 32,
 	HeavyResponsiveness = 7,
