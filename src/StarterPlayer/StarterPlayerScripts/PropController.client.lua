@@ -11,7 +11,7 @@ local mouse = player:GetMouse()
 local remotes = ReplicatedStorage:WaitForChild("PropRemotes")
 local request = remotes:WaitForChild("Request")
 local result = remotes:WaitForChild("Result")
-local held, pending, focused, carryArm, shoulderAttachment, hiddenArm
+local held, pending, focused
 local previousCameraMode, previousAutoRotate
 local lastTargetUpdate = 0
 
@@ -30,14 +30,7 @@ local function taggedAncestor(instance)
 	end
 end
 
-local function clearArm()
-	if carryArm then carryArm:Destroy(); carryArm = nil end
-	if shoulderAttachment then shoulderAttachment:Destroy(); shoulderAttachment = nil end
-	if hiddenArm then hiddenArm.LocalTransparencyModifier = 0; hiddenArm = nil end
-end
-
 local function restoreCarryState()
-	clearArm()
 	if previousCameraMode then player.CameraMode = previousCameraMode; previousCameraMode = nil end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if humanoid and previousAutoRotate ~= nil then humanoid.AutoRotate = previousAutoRotate end
@@ -51,30 +44,14 @@ local function breakGrip(reason)
 	if reason and reason ~= "Released" then warn("Grip ended: " .. reason) end
 end
 
-local function startArm(side)
-	clearArm()
+local function startArm()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local torso = character and character:FindFirstChild("Torso")
-	hiddenArm = character and character:FindFirstChild(side .. " Arm")
 	if humanoid then
 		previousCameraMode = player.CameraMode
 		player.CameraMode = Enum.CameraMode.LockFirstPerson
 		previousAutoRotate = humanoid.AutoRotate
 		humanoid.AutoRotate = false
-	end
-	if humanoid and torso and torso:IsA("BasePart") and hiddenArm and hiddenArm:IsA("BasePart") then
-		shoulderAttachment = Instance.new("Attachment")
-		shoulderAttachment.Name = side .. "ShoulderGripOrigin"
-		shoulderAttachment.Position = Vector3.new(if side == "Left" then -1.5 else 1.5, 0.5, 0)
-		shoulderAttachment.Parent = torso
-		carryArm = hiddenArm:Clone()
-		-- Keep the canonical body-part name so Roblox applies the character's
-		-- classic shirt texture to the rendered carry arm as well.
-		carryArm.Name = hiddenArm.Name; carryArm.Anchored = true; carryArm.CanCollide = false; carryArm.CanTouch = false; carryArm.CanQuery = false
-		for _, child in carryArm:GetChildren() do if child:IsA("JointInstance") or child:IsA("Attachment") then child:Destroy() end end
-		carryArm.Parent = character
-		hiddenArm.LocalTransparencyModifier = 1
 	end
 end
 
@@ -83,14 +60,6 @@ RunService.RenderStepped:Connect(function()
 		panel.Text = "<b>Holding</b>\nMouse wheel: distance\n[ E ] Release"
 		panel.Visible = true
 		if not held.target.Parent then breakGrip("PropDestroyed"); return end
-		if carryArm and shoulderAttachment then
-			local shoulderPos, gripPos = shoulderAttachment.WorldPosition, held.target.WorldPosition
-			local delta = gripPos - shoulderPos
-			if delta.Magnitude > 0.01 then
-				carryArm.Size = Vector3.new(carryArm.Size.X, math.min(delta.Magnitude + Config.ArmOverlap * 2, Config.BreakDistance + Config.ArmOverlap * 2), carryArm.Size.Z)
-				carryArm.CFrame = CFrame.lookAt(shoulderPos:Lerp(gripPos, 0.5), gripPos) * CFrame.Angles(math.pi / 2, 0, 0)
-			end
-		end
 		local camera, character = workspace.CurrentCamera, player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if camera and root and root:IsA("BasePart") then
@@ -111,10 +80,10 @@ RunService.RenderStepped:Connect(function()
 	panel.Visible = true
 end)
 
-result.OnClientEvent:Connect(function(action, prop, ok, reason, attachment, side)
+result.OnClientEvent:Connect(function(action, prop, ok, reason, attachment)
 	if action == "Grab" and prop == pending then
 		pending = nil
-		if ok and attachment and attachment:IsA("Attachment") then held = { prop = prop, target = attachment }; startArm(side or "Right")
+		if ok and attachment and attachment:IsA("Attachment") then held = { prop = prop, target = attachment }; startArm()
 		elseif reason then warn("Grab rejected: " .. reason) end
 	elseif action == "Broken" and held and held.prop == prop then breakGrip(ok) end
 end)
