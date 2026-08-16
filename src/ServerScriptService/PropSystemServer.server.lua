@@ -65,7 +65,7 @@ end)
 local function watchCharacter(player, character)
 	character.ChildAdded:Connect(function(child)
 		if not child:IsA("Tool") then return end
-		if PropService:GetHeldSide(player) == "Right" then PropService:ReleaseAll(player, "ToolEquipped") end
+		PropService:DisableRightArm(player)
 	end)
 end
 

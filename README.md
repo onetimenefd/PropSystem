@@ -24,14 +24,18 @@ grab different points on the same prop, and every additional constraint
 contributes force.
 
 Carrying locks the local player to first person. Camera pitch raises or lowers
-the physical target (with ground and vertical clamps), while a server-replicated R6
-carry arm, including the player's arm color and shirt texture, stretches from
-the selected shoulder to the exact surface grip point.
+the physical target (with ground and vertical clamps). The holder renders a local
+R6 carry arm every frame for smooth motion and hides their replicated copy; other
+players see the server-authoritative carry arm at the same grip point.
 The server ends the grip if that shoulder-to-grip distance exceeds 3.6 studs.
 
-When a tool is equipped, newly grabbed props use the R6 left hand so the tool
-can remain in its default right hand. Equipping a tool while a prop is already
-held with the right hand releases that prop first.
+Props whose `Classification` attribute is `"Heavy"`, whose `Heavy` attribute is
+true, or whose mass meets `HeavyMass` try to use both arms. Heavy props also reduce
+WalkSpeed progressively as their mass approaches `HeavyMaxSlowMass`.
+
+When a tool is equipped, newly grabbed props use only the R6 left hand so the tool
+can remain in its default right hand. Equipping a tool during a two-handed carry
+removes only the right arm; a right-only carry is released.
 
 ## Development
 
