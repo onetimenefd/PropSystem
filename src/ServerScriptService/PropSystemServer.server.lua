@@ -20,6 +20,9 @@ if request and not request:IsA("RemoteEvent") then
 	request:Destroy()
 	request = nil
 end
+local result = folder:FindFirstChild("Result")
+if result and not result:IsA("RemoteEvent") then result:Destroy(); result = nil end
+if not result then result = Instance.new("RemoteEvent"); result.Name = "Result"; result.Parent = folder end
 if not request then
 	request = Instance.new("RemoteEvent")
 	request.Name = "Request"
@@ -32,19 +35,26 @@ local function isNearProp(player, prop)
 	return record ~= nil and root ~= nil and root:IsA("BasePart") and (root.Position - record.instance.Position).Magnitude <= 12
 end
 
-request.OnServerEvent:Connect(function(player, action, prop, value)
+request.OnServerEvent:Connect(function(player, action, prop, value, value2, value3)
 	if typeof(prop) ~= "Instance" then
 		return
 	end
-	if action == "Grab" and typeof(value) == "Vector3" then
-		PropService:Grab(player, prop, value)
+	if action == "Grab" and typeof(value) == "Vector3" and typeof(value2) == "Vector3" then
+		local ok, reason, attachment = PropService:Grab(player, prop, value, value2)
+		result:FireClient(player, "Grab", prop, ok, reason, attachment)
 	elseif action == "Release" then
 		PropService:Release(player, prop)
 	elseif action == "Anchor" and typeof(value) == "boolean" and isNearProp(player, prop) then
 		PropService:SetAnchored(prop, value)
-	elseif action == "Rotate" and typeof(value) == "number" then
-		PropService:Rotate(player, prop, value)
+	elseif action == "Rotate" and typeof(value) == "number" and typeof(value2) == "number" and typeof(value3) == "number" then
+		PropService:Rotate(player, prop, value, value2, value3)
+	elseif action == "Distance" and typeof(value) == "number" then
+		PropService:AdjustHold(player, prop, math.clamp(value, -0.35, 0.35))
 	end
+end)
+
+PropService.GripBroken:Connect(function(player, prop)
+	result:FireClient(player, "Broken", prop)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
