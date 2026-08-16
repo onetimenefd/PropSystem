@@ -6,7 +6,14 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
-local request = ReplicatedStorage:WaitForChild("PropRemotes"):WaitForChild("Request")
+local remoteFolder = ReplicatedStorage:WaitForChild("PropRemotes")
+local request = remoteFolder:FindFirstChild("Request")
+while not request or not request:IsA("RemoteFunction") do
+	request = remoteFolder.ChildAdded:Wait()
+	if request.Name ~= "Request" then
+		request = remoteFolder:FindFirstChild("Request")
+	end
+end
 local held = nil
 local focused = nil
 local armIK = nil
