@@ -13,6 +13,7 @@ type Grip = {
 	target: Attachment,
 	position: AlignPosition,
 	orientation: AlignOrientation,
+	noCollisionConstraints: { NoCollisionConstraint },
 	createdAt: number,
 	side: string,
 	holdDistance: number,
@@ -57,6 +58,7 @@ end
 local function removeGrip(record: PropRecord, player: Player, reason: string): boolean
 	local grip = record.grips[player]
 	if not grip then return false end
+	for _, item in grip.noCollisionConstraints do item:Destroy() end
 	for _, item in { grip.position, grip.orientation, grip.grab, grip.target } do item:Destroy() end
 	record.grips[player] = nil
 	heldByPlayer[player] = nil
@@ -122,7 +124,21 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	local orientation = Instance.new("AlignOrientation")
 	orientation.Name = "PropGrabOrientation"; orientation.Attachment0 = grab; orientation.Attachment1 = target
 	orientation.MaxTorque = record.mass * Config.MaxTorquePerMass; orientation.Responsiveness = responsiveness; orientation.Parent = record.instance
-	record.grips[player] = { player = player, grab = grab, target = target, position = position, orientation = orientation, createdAt = os.clock(), side = side, holdDistance = Config.DefaultHoldDistance }
+	local noCollisionConstraints = {}
+	local propParts = if record.source:IsA("BasePart") then { record.source } else record.source:GetDescendants()
+	for _, propPart in propParts do
+		if not propPart:IsA("BasePart") then continue end
+		for _, characterPart in character:GetDescendants() do
+			if not characterPart:IsA("BasePart") then continue end
+			local constraint = Instance.new("NoCollisionConstraint")
+			constraint.Name = "PropHolderNoCollision"
+			constraint.Part0 = propPart
+			constraint.Part1 = characterPart
+			constraint.Parent = propPart
+			table.insert(noCollisionConstraints, constraint)
+		end
+	end
+	record.grips[player] = { player = player, grab = grab, target = target, position = position, orientation = orientation, noCollisionConstraints = noCollisionConstraints, createdAt = os.clock(), side = side, holdDistance = Config.DefaultHoldDistance }
 	heldByPlayer[player] = record
 	-- Roblox permits one owner per assembly; the first holder owns it while additional
 	-- server constraints still contribute force.
@@ -162,12 +178,6 @@ function PropService:UpdateTarget(player: Player, prop: Instance, cameraPosition
 	local delta = desired - shoulder
 	if delta.Magnitude > Config.BreakDistance - 0.1 then desired = shoulder + delta.Unit * (Config.BreakDistance - 0.1) end
 	grip.target.CFrame = root.CFrame:ToObjectSpace(CFrame.new(desired))
-	return true
-end
-
-function PropService:Rotate(player: Player, prop: Instance, pitch: number, yaw: number, roll: number): boolean
-	local r = byInstance[prop]; local grip = r and r.grips[player]; if not grip then return false end
-	grip.target.CFrame *= CFrame.Angles(math.rad(math.clamp(pitch, -20, 20)), math.rad(math.clamp(yaw, -20, 20)), math.rad(math.clamp(roll, -20, 20)))
 	return true
 end
 

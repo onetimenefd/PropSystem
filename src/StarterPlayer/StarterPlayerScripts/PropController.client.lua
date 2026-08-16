@@ -13,7 +13,7 @@ local request = remotes:WaitForChild("Request")
 local result = remotes:WaitForChild("Result")
 local held, pending, focused, carryArm, shoulderAttachment, hiddenArm
 local previousCameraMode, previousAutoRotate
-local rotating, lastTargetUpdate = false, 0
+local lastTargetUpdate = 0
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "PropInfo"; gui.ResetOnSpawn = false; gui.Parent = player:WaitForChild("PlayerGui")
@@ -69,7 +69,9 @@ local function startArm(side)
 		shoulderAttachment.Position = Vector3.new(if side == "Left" then -1.5 else 1.5, 0.5, 0)
 		shoulderAttachment.Parent = torso
 		carryArm = hiddenArm:Clone()
-		carryArm.Name = side .. "CarryArm"; carryArm.Anchored = true; carryArm.CanCollide = false; carryArm.CanTouch = false; carryArm.CanQuery = false
+		-- Keep the canonical body-part name so Roblox applies the character's
+		-- classic shirt texture to the rendered carry arm as well.
+		carryArm.Name = hiddenArm.Name; carryArm.Anchored = true; carryArm.CanCollide = false; carryArm.CanTouch = false; carryArm.CanQuery = false
 		for _, child in carryArm:GetChildren() do if child:IsA("JointInstance") or child:IsA("Attachment") then child:Destroy() end end
 		carryArm.Parent = character
 		hiddenArm.LocalTransparencyModifier = 1
@@ -78,7 +80,7 @@ end
 
 RunService.RenderStepped:Connect(function()
 	if held then
-		panel.Text = "<b>Holding</b>\nWheel: distance   Hold R + mouse: rotate   Q: roll\n[ E ] Release"
+		panel.Text = "<b>Holding</b>\nMouse wheel: distance\n[ E ] Release"
 		panel.Visible = true
 		if not held.target.Parent then breakGrip("PropDestroyed"); return end
 		if carryArm and shoulderAttachment then
@@ -134,18 +136,9 @@ end
 
 ContextActionService:BindAction("GrabProp", grabAction, false, Enum.KeyCode.E)
 ContextActionService:BindAction("AnchorProp", anchorAction, false, Enum.KeyCode.F)
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed or not held then return end
-	if input.KeyCode == Enum.KeyCode.R then rotating = true
-	elseif input.KeyCode == Enum.KeyCode.Q then request:FireServer("Rotate", held.prop, 0, 0, UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and -2 or -8) end
-end)
-UserInputService.InputEnded:Connect(function(input) if input.KeyCode == Enum.KeyCode.R then rotating = false end end)
 UserInputService.InputChanged:Connect(function(input, processed)
 	if processed or not held then return end
 	if input.UserInputType == Enum.UserInputType.MouseWheel then request:FireServer("Distance", held.prop, -input.Position.Z * 0.2)
-	elseif rotating and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local scale = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and 0.08 or Config.RotationSensitivity
-		request:FireServer("Rotate", held.prop, -input.Delta.Y * scale, -input.Delta.X * scale, 0)
 	end
 end)
 
