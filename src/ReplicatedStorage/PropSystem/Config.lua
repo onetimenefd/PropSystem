@@ -1,9 +1,10 @@
 return table.freeze({
 	GrabDistance = 12,
 	DefaultHoldDistance = 2.75,
-	MinHoldDistance = 2,
+	MinHoldDistance = 1.5,
 	MaxHoldDistance = 3.25,
-	BreakDistance = 3.5,
+	SoftGripDistance = 3.2,
+	BreakDistance = 3.6,
 	BreakGracePeriod = 0.65,
 	LightResponsiveness = 32,
 	HeavyResponsiveness = 7,
@@ -13,4 +14,8 @@ return table.freeze({
 	ForcePerMass = 850,
 	MaxTorquePerMass = 2400,
 	RotationSensitivity = 0.35,
+	TargetUpdateRate = 20,
+	MinTargetHeightFromShoulder = -1.5,
+	MaxTargetHeightFromShoulder = 2,
+	ArmOverlap = 0.08,
 })

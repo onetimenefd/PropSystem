@@ -23,6 +23,11 @@ limited-force constraints pull that point toward a target 2–3 studs in front o
 the player; props are never teleported. Multiple players can grab different
 points on the same prop, and every additional constraint contributes force.
 
+Carrying locks the local player to first person. Camera pitch raises or lowers
+the physical target (with ground and vertical clamps), while a client-only R6
+carry arm stretches from the selected shoulder to the exact surface grip point.
+The server ends the grip if that shoulder-to-grip distance exceeds 3.6 studs.
+
 ## Development
 
 The repository uses a Rojo project layout. Build a place file with:
