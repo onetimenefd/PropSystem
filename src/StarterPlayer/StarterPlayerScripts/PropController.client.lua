@@ -69,7 +69,8 @@ local function syncLocalArms(character)
 		activeSides[side] = true
 		if not localArms[side] then
 			local clone = serverArm:Clone()
-			clone.Name = "Local" .. side .. "CarryArm"
+			-- Classic Shirt textures are applied by matching the canonical R6 limb name.
+			clone.Name = serverArm.Name
 			clone:SetAttribute("PropCarryArm", nil)
 			clone.LocalTransparencyModifier = 0
 			clone.Parent = character
