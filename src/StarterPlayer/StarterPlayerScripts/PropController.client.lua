@@ -8,7 +8,7 @@ local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 local remoteFolder = ReplicatedStorage:WaitForChild("PropRemotes")
 local request = remoteFolder:FindFirstChild("Request")
-while not request or not request:IsA("RemoteFunction") do
+while not request or not request:IsA("RemoteEvent") do
 	request = remoteFolder.ChildAdded:Wait()
 	if request.Name ~= "Request" then
 		request = remoteFolder:FindFirstChild("Request")
@@ -68,32 +68,30 @@ local function handleAction(_, inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	if held then
-		request:InvokeServer("Release", held)
+		request:FireServer("Release", held)
 		if armIK then
 			armIK:Destroy()
 			armIK = nil
 		end
 		held = nil
 	elseif focused then
-		local success = request:InvokeServer("Grab", focused, mouse.Hit.Position)
-		if success then
-			held = focused
-			local character = player.Character
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			local upperArm = character and character:FindFirstChild("RightUpperArm")
-			local hand = character and character:FindFirstChild("RightHand")
-			local grabPoint = focused:FindFirstChild("PropGrabPoint", true)
-			if humanoid and upperArm and hand and grabPoint and grabPoint:IsA("Attachment") then
-				armIK = Instance.new("IKControl")
-				armIK.Name = "PropArmIK"
-				armIK.Type = Enum.IKControlType.Position
-				armIK.ChainRoot = upperArm
-				armIK.EndEffector = hand
-				armIK.Target = grabPoint
-				armIK.SmoothTime = 0.12
-				armIK.Weight = 0.85
-				armIK.Parent = humanoid
-			end
+		request:FireServer("Grab", focused, mouse.Hit.Position)
+		held = focused
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local upperArm = character and character:FindFirstChild("RightUpperArm")
+		local hand = character and character:FindFirstChild("RightHand")
+		local grabPoint = focused:FindFirstChild("PropGrabPoint", true)
+		if humanoid and upperArm and hand and grabPoint and grabPoint:IsA("Attachment") then
+			armIK = Instance.new("IKControl")
+			armIK.Name = "PropArmIK"
+			armIK.Type = Enum.IKControlType.Position
+			armIK.ChainRoot = upperArm
+			armIK.EndEffector = hand
+			armIK.Target = grabPoint
+			armIK.SmoothTime = 0.12
+			armIK.Weight = 0.85
+			armIK.Parent = humanoid
 		end
 	end
 	return Enum.ContextActionResult.Sink
@@ -101,14 +99,14 @@ end
 
 local function anchorAction(_, inputState)
 	if inputState == Enum.UserInputState.Begin and focused and not held then
-		request:InvokeServer("Anchor", focused, focused:GetAttribute("PropState") ~= "ANCHORED")
+		request:FireServer("Anchor", focused, focused:GetAttribute("PropState") ~= "ANCHORED")
 	end
 	return Enum.ContextActionResult.Sink
 end
 
 local function rotateAction(_, inputState)
 	if inputState == Enum.UserInputState.Begin and held then
-		request:InvokeServer("Rotate", held, 15)
+		request:FireServer("Rotate", held, 15)
 	end
 	return Enum.ContextActionResult.Sink
 end

@@ -13,16 +13,15 @@ if not folder then
 	folder.Parent = ReplicatedStorage
 end
 
--- A RemoteEvent named Request may be left behind in a place created with an
--- older version of the system. InvokeServer is only available on RemoteFunction,
--- so replace an incompatible instance rather than allowing the client to bind it.
+-- Prop actions are one-way requests. Keep this endpoint as a RemoteEvent so
+-- client input never blocks while waiting for a response from the server.
 local request = folder:FindFirstChild("Request")
-if request and not request:IsA("RemoteFunction") then
+if request and not request:IsA("RemoteEvent") then
 	request:Destroy()
 	request = nil
 end
 if not request then
-	request = Instance.new("RemoteFunction")
+	request = Instance.new("RemoteEvent")
 	request.Name = "Request"
 	request.Parent = folder
 end
@@ -33,21 +32,20 @@ local function isNearProp(player, prop)
 	return record ~= nil and root ~= nil and root:IsA("BasePart") and (root.Position - record.instance.Position).Magnitude <= 12
 end
 
-request.OnServerInvoke = function(player, action, prop, value)
+request.OnServerEvent:Connect(function(player, action, prop, value)
 	if typeof(prop) ~= "Instance" then
-		return false, "Invalid prop"
+		return
 	end
 	if action == "Grab" and typeof(value) == "Vector3" then
-		return PropService:Grab(player, prop, value)
+		PropService:Grab(player, prop, value)
 	elseif action == "Release" then
-		return PropService:Release(player, prop)
+		PropService:Release(player, prop)
 	elseif action == "Anchor" and typeof(value) == "boolean" and isNearProp(player, prop) then
-		return PropService:SetAnchored(prop, value)
+		PropService:SetAnchored(prop, value)
 	elseif action == "Rotate" and typeof(value) == "number" then
-		return PropService:Rotate(player, prop, value)
+		PropService:Rotate(player, prop, value)
 	end
-	return false, "Unknown action"
-end
+end)
 
 Players.PlayerRemoving:Connect(function(player)
 	PropService:ReleaseAll(player)
