@@ -1,0 +1,26 @@
+{
+  "name": "PropSystem",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "PropSystem": {
+        "$path": "src/ReplicatedStorage/PropSystem"
+      }
+    },
+    "ServerScriptService": {
+      "PropSystemServer": {
+        "$path": "src/ServerScriptService/PropSystemServer.server.lua"
+      },
+      "PropService": {
+        "$path": "src/ServerScriptService/PropService.lua"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "PropController": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/PropController.client.lua"
+        }
+      }
+    }
+  }
+}
