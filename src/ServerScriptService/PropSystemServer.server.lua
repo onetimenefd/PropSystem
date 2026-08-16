@@ -2,13 +2,30 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PropService = require(script.Parent.PropService)
-local folder = ReplicatedStorage:FindFirstChild("PropRemotes") or Instance.new("Folder")
-folder.Name = "PropRemotes"
-folder.Parent = ReplicatedStorage
+local folder = ReplicatedStorage:FindFirstChild("PropRemotes")
+if folder and not folder:IsA("Folder") then
+	folder:Destroy()
+	folder = nil
+end
+if not folder then
+	folder = Instance.new("Folder")
+	folder.Name = "PropRemotes"
+	folder.Parent = ReplicatedStorage
+end
 
-local request = Instance.new("RemoteFunction")
-request.Name = "Request"
-request.Parent = folder
+-- A RemoteEvent named Request may be left behind in a place created with an
+-- older version of the system. InvokeServer is only available on RemoteFunction,
+-- so replace an incompatible instance rather than allowing the client to bind it.
+local request = folder:FindFirstChild("Request")
+if request and not request:IsA("RemoteFunction") then
+	request:Destroy()
+	request = nil
+end
+if not request then
+	request = Instance.new("RemoteFunction")
+	request.Name = "Request"
+	request.Parent = folder
+end
 
 local function isNearProp(player, prop)
 	local record = PropService:GetRecord(prop)
