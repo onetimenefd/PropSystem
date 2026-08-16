@@ -61,4 +61,19 @@ Players.PlayerRemoving:Connect(function(player)
 	PropService:ReleaseAll(player, "PlayerLeft")
 end)
 
+local function watchCharacter(player, character)
+	character.ChildAdded:Connect(function(child)
+		if not child:IsA("Tool") then return end
+		if PropService:GetHeldSide(player) == "Right" then PropService:ReleaseAll(player, "ToolEquipped") end
+	end)
+end
+
+local function watchPlayer(player)
+	player.CharacterAdded:Connect(function(character) watchCharacter(player, character) end)
+	if player.Character then watchCharacter(player, player.Character) end
+end
+
+Players.PlayerAdded:Connect(watchPlayer)
+for _, player in Players:GetPlayers() do watchPlayer(player) end
+
 PropService:Start()

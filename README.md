@@ -24,10 +24,14 @@ grab different points on the same prop, and every additional constraint
 contributes force.
 
 Carrying locks the local player to first person. Camera pitch raises or lowers
-the physical target (with ground and vertical clamps), while a client-only R6
+the physical target (with ground and vertical clamps), while a server-replicated R6
 carry arm, including the player's arm color and shirt texture, stretches from
 the selected shoulder to the exact surface grip point.
 The server ends the grip if that shoulder-to-grip distance exceeds 3.6 studs.
+
+When a tool is equipped, newly grabbed props use the R6 left hand so the tool
+can remain in its default right hand. Equipping a tool while a prop is already
+held with the right hand releases that prop first.
 
 ## Development
 

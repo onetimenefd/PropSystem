@@ -14,6 +14,10 @@ type Grip = {
 	position: AlignPosition,
 	orientation: AlignOrientation,
 	noCollisionConstraints: { NoCollisionConstraint },
+	carryArm: BasePart?,
+	shoulderAttachment: Attachment?,
+	hiddenArm: BasePart?,
+	hiddenArmTransparency: number?,
 	createdAt: number,
 	side: string,
 	holdDistance: number,
@@ -59,6 +63,9 @@ local function removeGrip(record: PropRecord, player: Player, reason: string): b
 	local grip = record.grips[player]
 	if not grip then return false end
 	for _, item in grip.noCollisionConstraints do item:Destroy() end
+	if grip.carryArm then grip.carryArm:Destroy() end
+	if grip.shoulderAttachment then grip.shoulderAttachment:Destroy() end
+	if grip.hiddenArm and grip.hiddenArm.Parent and grip.hiddenArmTransparency ~= nil then grip.hiddenArm.Transparency = grip.hiddenArmTransparency end
 	for _, item in { grip.position, grip.orientation, grip.grab, grip.target } do item:Destroy() end
 	record.grips[player] = nil
 	heldByPlayer[player] = nil
@@ -66,6 +73,24 @@ local function removeGrip(record: PropRecord, player: Player, reason: string): b
 	setReplicatedState(record)
 	gripEnded:Fire(player, record.source, reason)
 	return true
+end
+
+local function createCarryArm(character: Model, side: string): (BasePart?, Attachment?, BasePart?, number?)
+	local torso = character:FindFirstChild("Torso")
+	local bodyArm = character:FindFirstChild(side .. " Arm")
+	if not torso or not torso:IsA("BasePart") or not bodyArm or not bodyArm:IsA("BasePart") then return nil, nil, nil, nil end
+	local shoulder = Instance.new("Attachment")
+	shoulder.Name = side .. "ShoulderGripOrigin"
+	shoulder.Position = Vector3.new(if side == "Left" then -1.5 else 1.5, 0.5, 0)
+	shoulder.Parent = torso
+	local arm = bodyArm:Clone()
+	-- Preserve the canonical R6 part name so classic Shirt textures apply to the clone.
+	arm.Name = bodyArm.Name; arm.Anchored = true; arm.CanCollide = false; arm.CanTouch = false; arm.CanQuery = false
+	for _, child in arm:GetChildren() do if child:IsA("JointInstance") or child:IsA("Attachment") then child:Destroy() end end
+	arm.Parent = character
+	local transparency = bodyArm.Transparency
+	bodyArm.Transparency = 1
+	return arm, shoulder, bodyArm, transparency
 end
 
 function PropService:Register(instance: Instance): PropRecord?
@@ -92,6 +117,11 @@ end
 
 function PropService:Get(objectID: string): BasePart? local r = registry[objectID]; return if r then r.instance else nil end
 function PropService:GetRecord(prop: Instance): PropRecord? return byInstance[prop] end
+function PropService:GetHeldSide(player: Player): string?
+	local record = heldByPlayer[player]
+	local grip = record and record.grips[player]
+	return if grip then grip.side else nil
+end
 
 function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hitPoint: Vector3): (boolean, string?, Attachment?, string?)
 	local record = byInstance[prop]
@@ -110,7 +140,8 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 	end
 
 	local suffix = tostring(player.UserId)
-	local side = if root.CFrame:PointToObjectSpace(result.Position).X < 0 then "Left" else "Right"
+	local hasEquippedTool = character:FindFirstChildWhichIsA("Tool") ~= nil
+	local side = if hasEquippedTool then "Left" elseif root.CFrame:PointToObjectSpace(result.Position).X < 0 then "Left" else "Right"
 	local target = Instance.new("Attachment")
 	target.Name = "PropHoldTarget_" .. suffix; target.Position = Vector3.new(0, 0, -Config.DefaultHoldDistance); target.Parent = root
 	local grab = Instance.new("Attachment")
@@ -138,7 +169,13 @@ function PropService:Grab(player: Player, prop: Instance, rayOrigin: Vector3, hi
 			table.insert(noCollisionConstraints, constraint)
 		end
 	end
-	record.grips[player] = { player = player, grab = grab, target = target, position = position, orientation = orientation, noCollisionConstraints = noCollisionConstraints, createdAt = os.clock(), side = side, holdDistance = Config.DefaultHoldDistance }
+	local carryArm, shoulderAttachment, hiddenArm, hiddenArmTransparency = createCarryArm(character, side)
+	record.grips[player] = {
+		player = player, grab = grab, target = target, position = position, orientation = orientation,
+		noCollisionConstraints = noCollisionConstraints, carryArm = carryArm, shoulderAttachment = shoulderAttachment,
+		hiddenArm = hiddenArm, hiddenArmTransparency = hiddenArmTransparency,
+		createdAt = os.clock(), side = side, holdDistance = Config.DefaultHoldDistance,
+	}
 	heldByPlayer[player] = record
 	-- Roblox permits one owner per assembly; the first holder owns it while additional
 	-- server constraints still contribute force.
@@ -206,6 +243,14 @@ function PropService:Start()
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				local root = character and character:FindFirstChild("HumanoidRootPart")
 				local shoulder = root and root:IsA("BasePart") and (root.CFrame * CFrame.new(if grip.side == "Left" then -1.5 else 1.5, 0.5, 0)).Position
+				if grip.carryArm and grip.shoulderAttachment then
+					local shoulderPosition, gripPosition = grip.shoulderAttachment.WorldPosition, grip.grab.WorldPosition
+					local delta = gripPosition - shoulderPosition
+					if delta.Magnitude > 0.01 then
+						grip.carryArm.Size = Vector3.new(grip.carryArm.Size.X, math.min(delta.Magnitude + Config.ArmOverlap * 2, Config.BreakDistance + Config.ArmOverlap * 2), grip.carryArm.Size.Z)
+						grip.carryArm.CFrame = CFrame.lookAt(shoulderPosition:Lerp(gripPosition, 0.5), gripPosition) * CFrame.Angles(math.pi / 2, 0, 0)
+					end
+				end
 				if not player.Parent or not grip.target.Parent or not grip.grab.Parent then removeGrip(record, player, "InvalidGrip")
 				elseif not humanoid or humanoid.Health <= 0 then removeGrip(record, player, "PlayerDied")
 				elseif record.instance.Anchored then removeGrip(record, player, "PropAnchored")
