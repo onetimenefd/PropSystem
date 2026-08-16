@@ -41,6 +41,7 @@ export type PropRecord = {
 }
 
 local PropService = {}
+local PlotService: any = nil
 local registry: { [string]: PropRecord } = {}
 local byInstance: { [Instance]: PropRecord } = {}
 local heldByPlayer: { [Player]: PropRecord } = {}
@@ -239,8 +240,18 @@ end
 
 function PropService:Release(player: Player, prop: Instance, reason: string?): boolean local r = byInstance[prop]; return if r then removeGrip(r, player, reason or "Released") else false end
 
-function PropService:SetAnchored(prop: Instance, anchored: boolean): boolean
-	local r = byInstance[prop]; if not r or next(r.grips) then return false end
+function PropService:SetPlotService(service: any) PlotService = service end
+
+function PropService:SetAnchored(player: Player, prop: Instance, anchored: boolean): (boolean, string?)
+	local r = byInstance[prop]; if not r or next(r.grips) then return false, "Prop cannot be anchored right now" end
+	local allowed, plot = PlotService:CanModifyAt(player, r.instance.Position)
+	if not allowed then return false, "You are not trusted on this plot" end
+	if plot then
+		r.source:SetAttribute("PlotOwner", plot.OwnerUserId); r.source:SetAttribute("PlacedBy", player.UserId)
+		r.instance:SetAttribute("PlotOwner", plot.OwnerUserId); r.instance:SetAttribute("PlacedBy", player.UserId)
+	elseif anchored then
+		r.source:SetAttribute("PlotOwner", nil); r.instance:SetAttribute("PlotOwner", nil)
+	end
 	r.instance.Anchored = anchored; setReplicatedState(r); return true
 end
 

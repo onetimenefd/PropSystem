@@ -3,6 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local PropService = require(script.Parent.PropService)
+local PlotService = require(script.Parent.PlotService)
+local BuildService = require(script.Parent.BuildService)
+PropService:SetPlotService(PlotService)
 local folder = ReplicatedStorage:FindFirstChild("PropRemotes")
 if folder and not folder:IsA("Folder") then
 	folder:Destroy()
@@ -30,6 +33,17 @@ if not request then
 	request.Parent = folder
 end
 
+local buildRemotes = ReplicatedStorage:FindFirstChild("BuildRemotes") or Instance.new("Folder")
+buildRemotes.Name = "BuildRemotes"; buildRemotes.Parent = ReplicatedStorage
+local placeBuild = buildRemotes:FindFirstChild("RequestPlaceBuild") or Instance.new("RemoteEvent")
+placeBuild.Name = "RequestPlaceBuild"; placeBuild.Parent = buildRemotes
+local buildResult = buildRemotes:FindFirstChild("Result") or Instance.new("RemoteEvent")
+buildResult.Name = "Result"; buildResult.Parent = buildRemotes
+placeBuild.OnServerEvent:Connect(function(player, buildType, desiredCFrame)
+	local ok, reason = BuildService:Place(player, buildType, desiredCFrame)
+	buildResult:FireClient(player, ok, reason)
+end)
+
 local function isNearProp(player, prop)
 	local record = PropService:GetRecord(prop)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -46,7 +60,8 @@ request.OnServerEvent:Connect(function(player, action, prop, value, value2, valu
 	elseif action == "Release" then
 		PropService:Release(player, prop)
 	elseif action == "Anchor" and typeof(value) == "boolean" and isNearProp(player, prop) then
-		PropService:SetAnchored(prop, value)
+		local ok, reason = PropService:SetAnchored(player, prop, value)
+		if not ok and reason then result:FireClient(player, "Notice", prop, false, reason) end
 	elseif action == "Distance" and typeof(value) == "number" then
 		PropService:AdjustHold(player, prop, math.clamp(value, -0.35, 0.35))
 	elseif action == "Target" and typeof(value) == "Vector3" and typeof(value2) == "Vector3" then
@@ -70,6 +85,26 @@ local function watchCharacter(player, character)
 end
 
 local function watchPlayer(player)
+	player.Chatted:Connect(function(message)
+		local words = string.split(message, " ")
+		local command = string.lower(words[1] or "")
+		local ok, reason = false, "Unknown plot command"
+		if command == "!pc" then ok, reason = PlotService:Create(player)
+		elseif command == "!rmp" then ok, reason = PlotService:Remove(player)
+		elseif command == "!pt" or command == "!ptr" then
+			if command == "!ptr" and string.lower(words[2] or "") == "all" then ok, reason = PlotService:ClearTrusted(player)
+		else
+			local query = string.lower(words[2] or "")
+			local target
+			for _, candidate in Players:GetPlayers() do
+				if string.sub(string.lower(candidate.Name), 1, #query) == query or string.sub(string.lower(candidate.DisplayName), 1, #query) == query then target = candidate; break end
+			end
+			if query == "" or not target then reason = "Player not found" else ok, reason = PlotService:SetTrusted(player, target, command == "!pt") end
+		end end
+		if command == "!pc" or command == "!rmp" or command == "!pt" or command == "!ptr" then
+			result:FireClient(player, "Notice", nil, ok, reason or (if ok then "Plot updated" else "Request denied"))
+		end
+	end)
 	player.CharacterAdded:Connect(function(character) watchCharacter(player, character) end)
 	if player.Character then watchCharacter(player, player.Character) end
 end

@@ -15,6 +15,24 @@ Runtime attributes (`ObjectID`, `Health`, and `PropState`) are assigned by the s
 - **E** — grab the aimed prop or release the held prop
 - **F** — anchor or unanchor the aimed prop
 - **Mouse wheel** — pull a held prop closer or push it farther away
+- **B** — enter or leave build mode
+- **Left click** — place the build-mode preview
+- **Right click** — cancel the current preview
+- **R / T / Y** — rotate the preview on its Y / X / Z axis in 15-degree steps
+
+## Plots and building
+
+Use `!pc` to create one temporary 100-stud cube plot centered on your character
+and snapped to whole studs. Plots cannot overlap. `!rmp` removes your plot and
+only builds and claimed props that belong to it. Plot data is intentionally not
+saved in this prototype.
+
+The owner can grant another online player build permission with `!pt name`,
+revoke it with `!ptr name`, or clear all permissions with `!ptr all`. Trust is
+tracked by user ID. Owners and trusted players can anchor props or place walls,
+floors, ramps, and foundations inside the plot. Build previews and plot boundaries
+are local; the server independently validates permissions, range, containment,
+snapping, overlap, type, and plot limits before creating a structure.
 
 Grabs use the cursor's surface hit point with a small amount of validation
 tolerance for cursor and network drift. Server-created attachments and
