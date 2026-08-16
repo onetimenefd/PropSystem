@@ -137,6 +137,7 @@ result.OnClientEvent:Connect(function(action, prop, ok, reason, attachment)
 		if ok and attachment and attachment:IsA("Attachment") then held = { prop = prop, target = attachment }; startArm()
 		elseif reason then warn("Grab rejected: " .. reason) end
 	elseif action == "Broken" and held and held.prop == prop then breakGrip(ok) end
+	if action == "Notice" and reason then warn(reason) end
 end)
 
 local function grabAction(_, state)

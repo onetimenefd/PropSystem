@@ -5,6 +5,9 @@
     "ReplicatedStorage": {
       "PropSystem": {
         "$path": "src/ReplicatedStorage/PropSystem"
+      },
+      "BuildSystem": {
+        "$path": "src/ReplicatedStorage/BuildSystem"
       }
     },
     "ServerScriptService": {
@@ -13,12 +16,21 @@
       },
       "PropService": {
         "$path": "src/ServerScriptService/PropService.lua"
+      },
+      "PlotService": {
+        "$path": "src/ServerScriptService/PlotService.lua"
+      },
+      "BuildService": {
+        "$path": "src/ServerScriptService/BuildService.lua"
       }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "PropController": {
           "$path": "src/StarterPlayer/StarterPlayerScripts/PropController.client.lua"
+        },
+        "BuildController": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/BuildController.client.lua"
         }
       }
     }
