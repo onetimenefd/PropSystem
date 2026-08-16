@@ -14,7 +14,14 @@ Runtime attributes (`ObjectID`, `Health`, and `PropState`) are assigned by the s
 
 - **E** — grab the aimed prop or release the held prop
 - **F** — anchor or unanchor the aimed prop
-- **R** — rotate a held prop by 15 degrees on the yaw axis
+- **Mouse wheel** — pull a held prop closer or push it farther away
+- **Hold R + move mouse** — pitch/yaw a held prop around the grabbed point
+- **Q** — roll a held prop (**Shift** enables precision rotation)
+
+Grabs use the cursor's exact surface hit point. Server-created attachments and
+limited-force constraints pull that point toward a target 2–3 studs in front of
+the player; props are never teleported. Multiple players can grab different
+points on the same prop, and every additional constraint contributes force.
 
 ## Development
 
